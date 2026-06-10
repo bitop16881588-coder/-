@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>女生生理週期智能預測與記錄器</title>
+    <style>
+        body { font-family: 'PingFang SC', 'Microsoft JhengHei', sans-serif; background-color: #fff5f5; color: #333; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(244,143,177,0.2); }
+        h2, h3 { text-align: center; color: #d81b60; }
+        h3 { margin-top: 30px; border-bottom: 2px solid #ffd1dc; padding-bottom: 5px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 6px; font-weight: bold; color: #555; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #ffc0cb; border-radius: 6px; box-sizing: border-box; font-size: 16px; }
+        button { width: 100%; padding: 12px; background-color: #e91e63; color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; font-weight: bold; margin-top: 5px; }
+        button:hover { background-color: #c2185b; }
+        button.secondary { background-color: #9c27b0; }
+        button.secondary:hover { background-color: #7b1fa2; }
+        button.danger { background-color: #757575; padding: 5px 10px; font-size: 12px; width: auto; margin-left: 10px; display: inline-block; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button.danger:hover { background-color: #212121; }
+        .result-box { margin-top: 30px; display: none; }
+        .summary { background: #ffe4e1; padding: 15px; border-radius: 8px; margin-bottom: 20px; line-height: 1.6; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #ffd1dc; padding: 10px; text-align: center; font-size: 14px; }
+        th { background-color: #fff0f5; color: #d81b60; }
+        .list-item { background: #fdf5f6; padding: 10px; border-radius: 6px; margin-bottom: 8px; font-size: 14px; display: flex; justify-content: space-between; align-items: center; border-left: 4px solid #e91e63; }
+        .love-item { border-left-color: #9c27b0; }
+        .period { background-color: #ffcdd2; color: #b71c1c; font-weight: bold; }
+        .ovulation-day { background-color: #e1bee7; color: #4a148c; font-weight: bold; }
+        .ovulation-period { background-color: #f3e5f5; color: #6a1b9a; }
+        .safe { background-color: #e8f5e9; color: #1b5e20; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🌸 月經預測與貼心記錄</h2>
+    
+    <!-- 1. 基礎設定 -->
+    <h3>⚙️ 基礎設定（預測用）</h3>
+    <div class="form-group">
+        <label for="lastDate">最近一次月經來潮第一天：</label>
+        <input type="date" id="lastDate">
+    </div>
+    <div class="form-group">
+        <label for="cycleDays">平均月經週期（天）：</label>
+        <input type="number" id="cycleDays" value="28" min="20" max="45">
+    </div>
+    <div class="form-group">
+        <label for="periodDays">平均行經天數（天）：</label>
+        <input type="number" id="periodDays" value="5" min="2" max="10">
+    </div>
+    <button onclick="calculatePeriod()">🎯 開始智能預測</button>
+
+    <!-- 2. 日常記錄 -->
+    <h3>📝 日常生活記錄</h3>
+    <div class="form-group">
+        <label for="recordType">記錄類型：</label>
+        <select id="recordType" onchange="toggleRecordFields()">
+            <option value="period">🔴 姨媽到訪/結束</option>
+            <option value="love">❤️ 合體（愛愛）記錄</option>
+        </select>
+    </div>
+    
+    <div class="form-group">
+        <label id="dateLabel" for="commonDate">日期：</label>
+        <input type="date" id="commonDate">
+    </div>
+
+    <div class="form-group" id="endDateGroup">
+        <label for="commonEndDate">結束日期（選填）：</label>
+        <input type="date" id="commonEndDate">
+    </div>
+    
+    <button class="secondary" onclick="saveRecord()">💾 保存該條記錄</button>
+
+    <!-- 3. 歷史數據 -->
+    <h3>📋 歷史記錄留存</h3>
+    <div id="historyLog">暫無記錄</div>
+
+    <!-- 4. 預測結果 -->
+    <div class="result-box" id="resultBox">
+        <h3>📅 週期日程預測表 (含合體標示)</h3>
+        <div class="summary" id="summaryText"></div>
+        <table>
+            <thead>
+                <tr>
+                    <th>日期</th>
+                    <th>週期天數</th>
+                    <th>狀態分類</th>
+                    <th>合體標記</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+// 標準日期轉字串函數 (YYYY-MM-DD)
+function formatDateStr(dateObj) {
+    var y = dateObj.getFullYear();
+    var m = dateObj.getMonth() + 1;
+    var d = dateObj.getDate();
+    if (m < 10) m = '0' + m;
+    if (d < 10) d = '0' + d;
+    return y + '-' + m + '-' + d;
+}
+
+// 頁面載入初始化
+window.onload = function() {
+    loadSettings();
+    displayHistory();
+    // 預設將今天的日期填入紀錄框
+    var today = new Date();
+    document.getElementById('commonDate').value = formatDateStr(today);
+};
+
+// 切換欄位顯示
+function toggleRecordFields() {
+    var type = document.getElementById('recordType').value;
+    var dateLabel = document.getElementById('dateLabel');
+    var endDateGroup = document.getElementById('endDateGroup');
+    
+    if (type === 'period') {
+        dateLabel.innerText = "開始日期：";
+        endDateGroup.style.display = "block";
+    } else {
+        dateLabel.innerText = "合體日期：";
+        endDateGroup.style.display = "none";
+    }
+}
+
+// 儲存日常紀錄
+function saveRecord() {
+    var type = document.getElementById('recordType').value;
+    var dateVal = document.getElementById('commonDate').value;
+    
+    if (!dateVal) { 
+        alert('請先選擇日期！'); 
+        return; 
+    }
+
+    var records = [];
+    var localData = localStorage.getItem('periodRecords');
+    if (localData) {
+        records = JSON.parse(localData);
+    }
+
+    var newRecord = { id: new Date().getTime(), type: type };
+
+    if (type === 'period') {
+        var endDateVal = document.getElementById('commonEndDate').value;
+        newRecord.start = dateVal;
+        newRecord.end = endDateVal ? endDateVal : '進行中...';
+    } else {
+        newRecord.date = dateVal;
+    }
+
+    records.push(newRecord);
+    localStorage.setItem('periodRecords', JSON.stringify(records));
+    
+    displayHistory();
+    
+    // 如果表格開著，自動重算刷新表格上的愛心
+    if (document.getElementById('resultBox').style.display === 'block') {
+        calculatePeriod();
+    }
+    alert('記錄成功！數據已成功保存在本地。');
+}
+
+// 顯示歷史紀錄
+function displayHistory() {
+    var container = document.getElementById('historyLog');
+    var records = [];
+    var localData = localStorage.getItem('periodRecords');
+    if (localData) {
+        records = JSON.parse(localData);
+    }
+    
+    if (records.length === 0) { 
+        container.innerHTML = '暫無記錄'; 
+        return; 
+    }
+
+    // 由新到舊排序
+    records.sort(function(a, b) { return b.id - a.id; });
+    
+    container.innerHTML = '';
+    for (var i = 0; i < records.length; i++) {
+        var r = records[i];
+        var div = document.createElement('div');
+        
+        if (r.type === 'period') {
+            div.className = 'list-item';
+            div.innerHTML = '<span>🔴 經期：<b>' + r.start + '</b> 至 <b>' + r.end + '</b></span>';
+        } else {
+            div.className = 'list-item love-item';
+            div.innerHTML = '<span>❤️ 合體：<b>' + r.date + '</b></span>';
+        }
+        
+        // 建立獨立的刪除按鈕
+        var delBtn = document.createElement('button');
+        delBtn.className = 'danger';
+        delBtn.innerText = '刪除';
+        delBtn.setAttribute('data-id', r.id);
+        delBtn.onclick = function() {
+            var targetId = parseInt(this.getAttribute('data-id'));
+            deleteRecord(targetId);
+        };
+        
+        div.appendChild(delBtn);
+        container.appendChild(div);
+    }
+}
+
+// 刪除特定紀錄
+function deleteRecord(id) {
+    var localData = localStorage.getItem('periodRecords');
+    if (!localData) return;
+    var records = JSON.parse(localData);
+    
+    var filtered = [];
+    for (var i = 0; i < records.length; i++) {
+        if (records[i].id !== id) {
+            filtered.push(records[i]);
+        }
+    }
+    
+    localStorage.setItem('periodRecords', JSON.stringify(filtered));
+    displayHistory();
+    
+    if (document.getElementById('resultBox').style.display === 'block') { 
+        calculatePeriod(); 
+    }
+}
+
+// 核心生理期預測計算
+function calculatePeriod() {
+    var lastDateVal = document.getElementById('lastDate').value;
+    var cycleDays = parseInt(document.getElementById('cycleDays').value) || 28;
+    var periodDays = parseInt(document.getElementById('periodDays').value) || 5;
+
+    if (!lastDateVal) { 
+        alert('請選擇您的最近一次月經日期！'); 
+        return; 
+    }
+    
+    // 儲存基本設定
+    var settings = { lastDateVal: lastDateVal, cycleDays: cycleDays, periodDays: periodDays };
+    localStorage.setItem('periodSettings', JSON.stringify(settings));
+
+    // 解析日期 (YYYY-MM-DD)
+    var parts = lastDateVal.split('-');
+    var year = parseInt(parts[0], 10);
+    var month = parseInt(parts[1], 10) - 1;
+    var day = parseInt(parts[2], 10);
+    var startDate = new Date(year, month, day);
+    
+    var tableBody = document.getElementById('tableBody');
+    tableBody.innerHTML = ''; 
+
+    // 計算排卵期與下期時間（毫秒數計算）
+    var oneDayMs = 24 * 60 * 60 * 1000;
+    var nextPeriodDate = new Date(startDate.getTime() + (cycleDays * oneDayMs));
+    var ovulationDay = new Date(nextPeriodDate.getTime() - (14 * oneDayMs));
+    var ovulationStart = new Date(ovulationDay.getTime() - (5 * oneDayMs));
+    var ovulationEnd = new Date(ovulationDay.getTime() + (4 * oneDayMs));
+
+    // 渲染上方大摘要
+    document.getElementById('summaryText').innerHTML = 
+        '🎉 <b>下期預測摘要：</b><br>' +
+        '🔴 下次月經預計：<b>' + formatDateStr(nextPeriodDate) + '</b><br>' +
+        '🎯 精準排卵日：<b>' + formatDateStr(ovulationDay) + '</b><br>' +
+        '🌸 易孕排卵期：<b>' + formatDateStr(ovulationStart) + ' 至 ' + formatDateStr(ovulationEnd) + '</b>';
+
+    // 抓取所有的合體日期
+    var loveDates = [];
+    var localData = localStorage.getItem('periodRecords');
+    if (localData) {
