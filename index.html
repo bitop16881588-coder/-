@@ -26,6 +26,7 @@
         .list-item { background: #fdf5f6; padding: 10px; border-radius: 6px; margin-bottom: 8px; font-size: 14px; display: flex; justify-content: space-between; align-items: center; border-left: 4px solid #e91e63; }
         .love-item { border-left-color: #9c27b0; }
         .period { background-color: #ffcdd2; color: #b71c1c; font-weight: bold; }
+        .next-period { background-color: #f8bbd0; color: #c2185b; font-weight: bold; }
         .ovulation-day { background-color: #e1bee7; color: #4a148c; font-weight: bold; }
         .ovulation-period { background-color: #f3e5f5; color: #6a1b9a; }
         .safe { background-color: #e8f5e9; color: #1b5e20; }
@@ -49,7 +50,7 @@
         <label for="periodDays">平均行經天數（天）：</label>
         <input type="number" id="periodDays" value="5" min="2" max="10">
     </div>
-    <button onclick="calculatePeriod()">🎯 開始智能預測</button>
+    <button onclick="calculatePeriod(true)">🎯 開始智能預測</button>
 
     <h3>📝 日常生活記錄</h3>
     <div class="form-group">
@@ -165,7 +166,7 @@ function saveRecord() {
     displayHistory();
     
     if (document.getElementById('resultBox').style.display === 'block') {
-        calculatePeriod();
+        calculatePeriod(false);
     }
     alert('記錄成功！數據已成功保存在本地。');
 }
@@ -228,11 +229,11 @@ function deleteRecord(id) {
     displayHistory();
     
     if (document.getElementById('resultBox').style.display === 'block') { 
-        calculatePeriod(); 
+        calculatePeriod(false); 
     }
 }
 
-function calculatePeriod() {
+function calculatePeriod(showAlert) {
     var lastDateVal = document.getElementById('lastDate').value;
     var cycleDays = parseInt(document.getElementById('cycleDays').value) || 28;
     var periodDays = parseInt(document.getElementById('periodDays').value) || 5;
@@ -253,6 +254,7 @@ function calculatePeriod() {
 
     var oneDayMs = 24 * 60 * 60 * 1000;
     var nextPeriodDate = new Date(startDate.getTime() + (cycleDays * oneDayMs));
+    var nextPeriodEnd = new Date(nextPeriodDate.getTime() + ((periodDays - 1) * oneDayMs));
     var ovulationDay = new Date(nextPeriodDate.getTime() - (14 * oneDayMs));
     var ovulationStart = new Date(ovulationDay.getTime() - (5 * oneDayMs));
     var ovulationEnd = new Date(ovulationDay.getTime() + (4 * oneDayMs));
@@ -274,8 +276,8 @@ function calculatePeriod() {
         }
     }
 
-    // 預測接下來 35 天的狀態
-    for (var d = 0; d < 35; d++) {
+    // 渲染未來 40 天日程
+    for (var d = 0; d < 40; d++) {
         var currentLoopDate = new Date(startDate.getTime() + (d * oneDayMs));
         var dateStr = formatDateStr(currentLoopDate);
         
@@ -283,10 +285,13 @@ function calculatePeriod() {
         var statusClass = 'safe';
         var statusText = '安全期';
 
-        // 判斷狀態分類
+        // 狀態優先級判斷
         if (d < periodDays) {
             statusClass = 'period';
             statusText = '經期內';
+        } else if (currentLoopDate >= nextPeriodDate && currentLoopDate <= nextPeriodEnd) {
+            statusClass = 'next-period';
+            statusText = '🔴 預測經期內';
         } else if (formatDateStr(currentLoopDate) === formatDateStr(ovulationDay)) {
             statusClass = 'ovulation-day';
             statusText = '🎯 精準排卵日';
@@ -295,7 +300,6 @@ function calculatePeriod() {
             statusText = '🌸 易孕排卵期';
         }
 
-        // 檢查當天有沒有合體標記
         var loveMarker = '';
         if (loveDates.indexOf(dateStr) !== -1) {
             loveMarker = '❤️ 已合體';
@@ -310,6 +314,10 @@ function calculatePeriod() {
     }
 
     document.getElementById('resultBox').style.display = 'block';
+
+    if (showAlert) {
+        alert('🎯 生理週期預測完成！');
+    }
 }
 </script>
 </body>
